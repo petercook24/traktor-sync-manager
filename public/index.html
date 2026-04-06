@@ -345,8 +345,10 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
+const API_BASE = "http://localhost:5123";
 const api = async (url, opts) => {
-  const r = await fetch(url, opts);
+  debugger;
+  const r = await fetch(API_BASE + url, opts);
   return r.json();
 };
 
@@ -472,11 +474,15 @@ function App() {
   // Auto-detect NML on mount
   useEffect(() => {
     api("/api/detect-nml").then(d => {
+      debugger;
+      console.log(d?.path);
       if (d.path) { setNmlPath(d.path); loadPlaylists(d.path); }
     });
   }, []);
 
   const loadPlaylists = async (path) => {
+
+      debugger;
     if (!path) return;
     setLoadingPl(true);
     setPlaylists([]);

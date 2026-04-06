@@ -12,7 +12,9 @@ function createWindow() {
     // Load index.html into the new BrowserWindow.
     const indexPath = path.join(__dirname, '..', '..', 'public', 'index.html');
     console.log('index path is:' + indexPath);
-    
+        console.log(`__filename is ${__filename}`);
+    console.log(`__dirname is ${__dirname}`);
+    console.log(`indexPath is ${indexPath}`);
     mainWindow.loadFile(indexPath);    
 }
 app.whenReady().then(createWindow);

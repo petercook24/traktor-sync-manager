@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "dist/main/main.js",
   "type": "module",
+  "proxy": "http://192.168.1.66:5000",
   "scripts": {
     "start": "electron .",
     "build": "tsc"
