@@ -16,9 +16,6 @@ function createWindow() {
 
   const indexPath = path.join(__dirname, '..', '..', 'public', 'index.html');
   mainWindow.loadFile(indexPath);
-  console.log(`__filename is ${__filename}`)
-  console.log(`__dirname is ${__dirname}`)
-  console.log(`indexpath is ${indexPath}`)
 }
 
 app.whenReady().then(createWindow);
