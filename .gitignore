@@ -1,0 +1,22 @@
+# Node.js
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm/
+
+# TypeScript v1 declaration files
+typings/
+
+# dotenv environment variable file
+.env
