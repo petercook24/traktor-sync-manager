@@ -1,12 +1,683 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traktor Sync Manager</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Traktor Exporter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0d0d0d;
+    --surface:  #161616;
+    --border:   #2a2a2a;
+    --accent:   #e8ff47;
+    --accent2:  #ff6b35;
+    --text:     #f0f0f0;
+    --muted:    #666;
+    --ok:       #4dff91;
+    --warn:     #ffd166;
+    --error:    #ff4d6d;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .app {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── Layout ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - 73px);
+  }
+
+  /* ── Panels ── */
+  .panel {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel:last-child { border-right: none; }
+  .panel-header {
+    padding: 16px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+  }
+
+  /* ── NML Row ── */
+  .nml-row {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .nml-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .nml-path {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .nml-path:focus { border-color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn-accent {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .btn-accent:hover { background: #d4eb3a; border-color: #d4eb3a; color: #000; }
+  .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+
+  /* ── Playlist list ── */
+  .playlist-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .playlist-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background .12s;
+    user-select: none;
+  }
+  .playlist-item:hover { background: var(--surface); }
+  .playlist-item.selected { background: #1e2a00; }
+  .checkbox {
+    width: 17px; height: 17px;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .12s;
+  }
+  .playlist-item.selected .checkbox {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .checkmark { font-size: 11px; color: #000; }
+  .pl-name { font-size: 0.88rem; flex: 1; }
+  .pl-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  /* ── Folder browser ── */
+  .folder-browser { height: 100%; display: flex; flex-direction: column; }
+  .breadcrumb {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border-radius: 6px;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+  .breadcrumb strong { color: var(--accent); }
+  .folder-list { flex: 1; overflow-y: auto; }
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background .1s;
+  }
+  .folder-item:hover { background: var(--surface); }
+  .folder-item.up { color: var(--muted); }
+  .folder-item.drive { color: var(--accent2); font-weight: 500; }
+  .folder-icon { font-size: 1rem; flex-shrink: 0; }
+  .folder-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .new-folder-row {
+    display: flex; gap: 6px; flex: 1;
+  }
+  .new-folder-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    outline: none;
+    min-width: 0;
+  }
+  .new-folder-input:focus { border-color: var(--accent); }
+  .selected-dest {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 6px 10px;
+    background: #1a2600;
+    border: 1px solid #3a5200;
+    border-radius: 6px;
+    color: var(--ok);
+    word-break: break-all;
+    margin-top: 10px;
+  }
+
+  /* ── Bottom export bar ── */
+  .export-bar {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .export-info {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .export-info strong { color: var(--text); }
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.82rem; color: var(--muted);
+  }
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background .2s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle-knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+  }
+  .toggle.on .toggle-knob { transform: translateX(16px); }
+
+  /* ── Log / progress ── */
+  .log-panel {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    background: #0a0a0a;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 14px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.74rem;
+    line-height: 1.7;
+  }
+  .log-ok    { color: var(--ok); }
+  .log-skip  { color: var(--muted); }
+  .log-warn  { color: var(--warn); }
+  .log-error { color: var(--error); }
+  .log-track { color: #8899aa; }
+  .log-done  { color: var(--accent); font-weight: 500; }
+
+  .summary-box {
+    margin-top: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .summary-stat { display: flex; flex-direction: column; gap: 2px; }
+  .summary-val { font-size: 1.1rem; color: var(--accent); }
+  .summary-key { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .empty { color: var(--muted); font-size: 0.83rem; padding: 20px 0; }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
-    <h1>Welcome to the Traktor Sync Manager</h1>
-    <p>This is a basic HTML structure for the app.</p>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const api = async (url, opts) => {
+  const r = await fetch(url, opts);
+  return r.json();
+};
+
+// ── Folder Browser ─────────────────────────────────────────────────────────────
+function FolderBrowser({ onSelect }) {
+  const [current, setCurrent]       = useState(null);
+  const [dirs, setDirs]             = useState([]);
+  const [drives, setDrives]         = useState([]);
+  const [parent, setParent]         = useState(null);
+  const [newName, setNewName]       = useState("");
+  const [selected, setSelected]     = useState("");
+  const [loading, setLoading]       = useState(false);
+
+  const browse = useCallback(async (path) => {
+    setLoading(true);
+    const data = await api(`/api/browse${path ? "?path="+encodeURIComponent(path) : ""}`);
+    setLoading(false);
+    if (data.error) return;
+    setCurrent(data.current || null);
+    setDirs(data.dirs || []);
+    setDrives(data.drives || []);
+    setParent(data.parent || null);
+  }, []);
+
+  useEffect(() => { browse(""); }, []);
+
+  const mkdir = async () => {
+    if (!newName.trim() || !current) return;
+    const data = await api("/api/mkdir", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ parent: current, name: newName.trim() })
+    });
+    if (data.path) { setNewName(""); browse(data.path); }
+  };
+
+  const selectThis = () => {
+    if (!current) return;
+    setSelected(current);
+    onSelect(current);
+  };
+
+  const shortName = p => p ? p.split(/[\\/]/).filter(Boolean).pop() || p : "";
+
+  return (
+    <div className="folder-browser">
+      {current
+        ? <div className="breadcrumb">📂 <strong>{current}</strong></div>
+        : <div className="breadcrumb">Choose a drive to start</div>
+      }
+
+      <div className="folder-list">
+        {/* Back up */}
+        {current && parent && (
+          <div className="folder-item up" onClick={() => browse(parent)}>
+            <span className="folder-icon">↩</span> Go up
+          </div>
+        )}
+        {/* Drive list when at root */}
+        {!current && drives.map(d => (
+          <div key={d} className="folder-item drive" onClick={() => browse(d)}>
+            <span className="folder-icon">💾</span> {d}
+          </div>
+        ))}
+        {/* Drives shortcut when browsing */}
+        {current && (
+          <div className="folder-item drive" onClick={() => { setCurrent(null); setDirs([]); setParent(null); browse(""); }}>
+            <span className="folder-icon">💾</span> <span style={{color:"var(--muted)"}}>Switch drive…</span>
+          </div>
+        )}
+        {loading && <div className="empty"><span className="spinner"/> Loading…</div>}
+        {dirs.map(d => (
+          <div key={d} className="folder-item" onClick={() => browse(d)}>
+            <span className="folder-icon">📁</span> {shortName(d)}
+          </div>
+        ))}
+        {!loading && current && dirs.length === 0 && (
+          <div className="empty">Empty folder</div>
+        )}
+      </div>
+
+      <div className="folder-actions">
+        <div className="new-folder-row">
+          <input
+            className="new-folder-input"
+            placeholder="New folder name…"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && mkdir()}
+          />
+          <button className="btn btn-sm" onClick={mkdir} disabled={!newName.trim() || !current}>
+            + Create
+          </button>
+        </div>
+        <button className="btn btn-accent btn-sm" onClick={selectThis} disabled={!current}>
+          ✅ Select this folder
+        </button>
+      </div>
+
+      {selected && (
+        <div className="selected-dest">
+          ✓ Destination: {selected}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────────────────
+function App() {
+  const [nmlPath, setNmlPath]         = useState("");
+  const [playlists, setPlaylists]     = useState([]);
+  const [loadingPl, setLoadingPl]     = useState(false);
+  const [selected, setSelected]       = useState(new Set());
+  const [dest, setDest]               = useState("");
+  const [copyTracks, setCopyTracks]   = useState(true);
+  const [exporting, setExporting]     = useState(false);
+  const [log, setLog]                 = useState([]);
+  const [summary, setSummary]         = useState(null);
+  const logRef                        = useRef(null);
+  const pollRef                       = useRef(null);
+
+  // Auto-detect NML on mount
+  useEffect(() => {
+    api("/api/detect-nml").then(d => {
+      if (d.path) { setNmlPath(d.path); loadPlaylists(d.path); }
+    });
+  }, []);
+
+  const loadPlaylists = async (path) => {
+    if (!path) return;
+    setLoadingPl(true);
+    setPlaylists([]);
+    const data = await api(`/api/parse-nml?path=${encodeURIComponent(path)}`);
+    setLoadingPl(false);
+    if (data.playlists) {
+      setPlaylists(data.playlists);
+      setSelected(new Set(data.playlists.map(p => p.name)));
+    }
+  };
+
+  const toggle = (name) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(name) ? n.delete(name) : n.add(name);
+      return n;
+    });
+  };
+  const selectAll  = () => setSelected(new Set(playlists.map(p => p.name)));
+  const selectNone = () => setSelected(new Set());
+
+  const startExport = async () => {
+    if (!nmlPath || !dest || selected.size === 0) return;
+    setLog([]);
+    setSummary(null);
+    setExporting(true);
+
+    await api("/api/export", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        nml_path: nmlPath,
+        dest,
+        selected: [...selected],
+        copy_tracks: copyTracks,
+      })
+    });
+
+    // Poll progress
+    pollRef.current = setInterval(async () => {
+      const data = await api("/api/progress");
+      setLog(data.log || []);
+      const doneEntry = (data.log || []).find(l => l.type === "done");
+      if (doneEntry?.summary) setSummary(doneEntry.summary);
+      if (data.done) {
+        clearInterval(pollRef.current);
+        setExporting(false);
+      }
+    }, 400);
+  };
+
+  // Auto-scroll log
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [log]);
+
+  const logClass = t => ({ ok:"log-ok", skip:"log-skip", warn:"log-warn", error:"log-error", track:"log-track", done:"log-done" }[t] || "");
+
+  const canExport = nmlPath && dest && selected.size > 0 && !exporting;
+
+  return (
+    <div className="app">
+      <header>
+        <h1>Traktor Exporter</h1>
+        <span>playlist &amp; track export tool</span>
+      </header>
+
+      <div style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
+        {/* NML path row */}
+        <div className="nml-row">
+          <span className="nml-label">collection.nml</span>
+          <input
+            className="nml-path"
+            value={nmlPath}
+            onChange={e => setNmlPath(e.target.value)}
+            placeholder="Path to collection.nml…"
+            onKeyDown={e => e.key === "Enter" && loadPlaylists(nmlPath)}
+          />
+          <button className="btn" onClick={() => loadPlaylists(nmlPath)} disabled={!nmlPath || loadingPl}>
+            {loadingPl ? <span className="spinner"/> : "Load"}
+          </button>
+        </div>
+
+        {/* Two-column panels */}
+        <div className="main" style={{flex:1}}>
+          {/* LEFT — Playlist selector */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">Playlists</span>
+              <span style={{fontFamily:"DM Mono, monospace", fontSize:"0.7rem", color:"var(--muted)"}}>
+                {selected.size}/{playlists.length} selected
+              </span>
+            </div>
+            <div className="panel-body">
+              {playlists.length === 0 && !loadingPl && (
+                <div className="empty">No playlists loaded. Enter your collection.nml path above.</div>
+              )}
+              {loadingPl && <div className="empty"><span className="spinner"/> Parsing collection…</div>}
+              {playlists.length > 0 && (
+                <>
+                  <div className="playlist-controls">
+                    <button className="btn btn-sm" onClick={selectAll}>All</button>
+                    <button className="btn btn-sm" onClick={selectNone}>None</button>
+                  </div>
+                  {playlists.map(pl => (
+                    <div
+                      key={pl.name}
+                      className={`playlist-item ${selected.has(pl.name) ? "selected" : ""}`}
+                      onClick={() => toggle(pl.name)}
+                    >
+                      <div className="checkbox">
+                        {selected.has(pl.name) && <span className="checkmark">✓</span>}
+                      </div>
+                      <span className="pl-name">{pl.name}</span>
+                      <span className="pl-count">{pl.count} tracks</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT — Destination folder */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">Destination Folder</span>
+              {dest && <span style={{fontFamily:"DM Mono, monospace", fontSize:"0.68rem", color:"var(--ok)"}}>✓ set</span>}
+            </div>
+            <div className="panel-body">
+              <FolderBrowser onSelect={setDest} />
+            </div>
+          </div>
+        </div>
+
+        {/* Export bar */}
+        <div className="export-bar">
+          <div className="export-info">
+            <strong>{selected.size}</strong> playlist{selected.size !== 1 ? "s" : ""} selected
+            {dest && <> → <strong style={{color:"var(--accent)", wordBreak:"break-all"}}>{dest}</strong></>}
+          </div>
+          <div className="toggle-row">
+            <div className={`toggle ${copyTracks ? "on" : ""}`} onClick={() => setCopyTracks(v => !v)}>
+              <div className="toggle-knob"/>
+            </div>
+            Copy audio files
+          </div>
+          <button className="btn btn-accent" onClick={startExport} disabled={!canExport}>
+            {exporting ? <><span className="spinner"/> Exporting…</> : "Export →"}
+          </button>
+        </div>
+
+        {/* Log */}
+        {log.length > 0 && (
+          <div className="log-panel" ref={logRef}>
+            {log.filter(l => l.type !== "done").map((l, i) => (
+              <div key={i} className={logClass(l.type)}>{l.msg}</div>
+            ))}
+            {summary && (
+              <div className="summary-box">
+                <div className="summary-stat">
+                  <span className="summary-val">{summary.pl_exported}</span>
+                  <span className="summary-key">Playlists exported</span>
+                </div>
+                {summary.pl_skipped > 0 && (
+                  <div className="summary-stat">
+                    <span className="summary-val" style={{color:"var(--muted)"}}>{summary.pl_skipped}</span>
+                    <span className="summary-key">Playlists skipped</span>
+                  </div>
+                )}
+                {copyTracks && <>
+                  <div className="summary-stat">
+                    <span className="summary-val">{summary.tr_copied}</span>
+                    <span className="summary-key">Tracks copied</span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-val">{summary.bytes_copied}</span>
+                    <span className="summary-key">Data transferred</span>
+                  </div>
+                  {summary.tr_skipped > 0 && (
+                    <div className="summary-stat">
+                      <span className="summary-val" style={{color:"var(--muted)"}}>{summary.tr_skipped}</span>
+                      <span className="summary-key">Already on drive</span>
+                    </div>
+                  )}
+                  {summary.tr_missing > 0 && (
+                    <div className="summary-stat">
+                      <span className="summary-val" style={{color:"var(--error)"}}>{summary.tr_missing}</span>
+                      <span className="summary-key">Not found</span>
+                    </div>
+                  )}
+                </>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
 </body>
 </html>
