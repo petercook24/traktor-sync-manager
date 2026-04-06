@@ -1,31 +1,33 @@
-// This is the main process file for Electron.
+import { app, BrowserWindow } from 'electron';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const { app, BrowserWindow } = require('electron');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-function createWindow () {
-    // Create the browser window.
-    const mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        webPreferences: {
-            nodeIntegration: true,
-        }
-    });
+function createWindow() {
+  const mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: true,
+    }
+  });
 
-    // Load index.html into the new BrowserWindow.
-    mainWindow.loadFile('index.html');
+  const indexPath = path.join(__dirname, '..', '..', 'public', 'index.html');
+  mainWindow.loadFile(indexPath);
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });
 
 app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow();
-    }
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });
