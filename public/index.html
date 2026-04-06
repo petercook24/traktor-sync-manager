@@ -9,676 +9,570 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg:       #0d0d0d;
-    --surface:  #161616;
-    --border:   #2a2a2a;
-    --accent:   #e8ff47;
-    --accent2:  #ff6b35;
-    --text:     #f0f0f0;
-    --muted:    #666;
-    --ok:       #4dff91;
-    --warn:     #ffd166;
-    --error:    #ff4d6d;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+:root {
+  --bg:      #0d0d0d;
+  --surface: #161616;
+  --border:  #2a2a2a;
+  --accent:  #e8ff47;
+  --accent2: #ff6b35;
+  --text:    #f0f0f0;
+  --muted:   #666;
+  --ok:      #4dff91;
+  --warn:    #ffd166;
+  --error:   #ff4d6d;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* The whole app fills the viewport exactly — nothing scrolls except designated panels */
+html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 
-  .app {
-    min-height: 100vh;
-    display: grid;
-    grid-template-rows: auto 1fr;
-  }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 
-  /* ── Header ── */
-  header {
-    padding: 28px 40px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-  }
-  header h1 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.4rem;
-    letter-spacing: 3px;
-    color: var(--accent);
-    line-height: 1;
-  }
-  header span {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--muted);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
+/* ── Shell ── */
+.shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  /* ── Layout ── */
-  .main {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 0;
-    height: calc(100vh - 73px);
-  }
+/* ── Header ── */
+header {
+  flex-shrink: 0;
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 3px; color: var(--accent); line-height: 1; }
+header span { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
 
-  /* ── Panels ── */
-  .panel {
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .panel:last-child { border-right: none; }
-  .panel-header {
-    padding: 16px 24px 14px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .panel-title {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--muted);
-  }
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 24px;
-  }
+/* ── Tab bar ── */
+.tabs {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.tab {
+  padding: 10px 24px;
+  font-size: 0.8rem;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  /* ── NML Row ── */
-  .nml-row {
-    grid-column: 1 / -1;
-    border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
-  .nml-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .nml-path {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
-    color: var(--text);
-    outline: none;
-    transition: border-color .15s;
-  }
-  .nml-path:focus { border-color: var(--accent); }
+/* ── Page (fills remaining space, no overflow) ── */
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
 
-  /* ── Buttons ── */
-  .btn {
-    padding: 8px 16px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: all .15s;
-    white-space: nowrap;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn:disabled { opacity: .35; cursor: default; }
-  .btn-accent {
-    background: var(--accent);
-    color: #000;
-    border-color: var(--accent);
-    font-weight: 500;
-  }
-  .btn-accent:hover { background: #d4eb3a; border-color: #d4eb3a; color: #000; }
-  .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+/* ── Path row ── */
+.path-row {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.path-label { font-family: 'DM Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); white-space: nowrap; }
+.path-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+.path-input:focus { border-color: var(--accent); }
 
-  /* ── Playlist list ── */
-  .playlist-controls {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .playlist-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 7px;
-    cursor: pointer;
-    transition: background .12s;
-    user-select: none;
-  }
-  .playlist-item:hover { background: var(--surface); }
-  .playlist-item.selected { background: #1e2a00; }
-  .checkbox {
-    width: 17px; height: 17px;
-    border: 1.5px solid var(--border);
-    border-radius: 4px;
-    flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .12s;
-  }
-  .playlist-item.selected .checkbox {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-  .checkmark { font-size: 11px; color: #000; }
-  .pl-name { font-size: 0.88rem; flex: 1; }
-  .pl-count {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--muted);
-  }
+/* ── Two-column content area (scrollable panels inside) ── */
+.columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  min-height: 0;
+}
+.col:last-child { border-right: none; }
+.col-header {
+  flex-shrink: 0;
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.col-title { font-family: 'DM Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
 
-  /* ── Folder browser ── */
-  .folder-browser { height: 100%; display: flex; flex-direction: column; }
-  .breadcrumb {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--muted);
-    margin-bottom: 12px;
-    padding: 8px 10px;
-    background: var(--surface);
-    border-radius: 6px;
-    word-break: break-all;
-    line-height: 1.5;
-  }
-  .breadcrumb strong { color: var(--accent); }
-  .folder-list { flex: 1; overflow-y: auto; }
-  .folder-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: background .1s;
-  }
-  .folder-item:hover { background: var(--surface); }
-  .folder-item.up { color: var(--muted); }
-  .folder-item.drive { color: var(--accent2); font-weight: 500; }
-  .folder-icon { font-size: 1rem; flex-shrink: 0; }
-  .folder-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .new-folder-row {
-    display: flex; gap: 6px; flex: 1;
-  }
-  .new-folder-input {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 7px 10px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
-    color: var(--text);
-    outline: none;
-    min-width: 0;
-  }
-  .new-folder-input:focus { border-color: var(--accent); }
-  .selected-dest {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    padding: 6px 10px;
-    background: #1a2600;
-    border: 1px solid #3a5200;
-    border-radius: 6px;
-    color: var(--ok);
-    word-break: break-all;
-    margin-top: 10px;
-  }
+/* THIS IS THE KEY: the scrollable list inside each column */
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 18px;
+  min-height: 0;
+}
 
-  /* ── Bottom export bar ── */
-  .export-bar {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: var(--surface);
-    flex-shrink: 0;
-  }
-  .export-info {
-    flex: 1;
-    font-size: 0.82rem;
-    color: var(--muted);
-  }
-  .export-info strong { color: var(--text); }
-  .toggle-row {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.82rem; color: var(--muted);
-  }
-  .toggle {
-    width: 36px; height: 20px;
-    background: var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    position: relative;
-    transition: background .2s;
-  }
-  .toggle.on { background: var(--accent); }
-  .toggle-knob {
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 14px; height: 14px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform .2s;
-  }
-  .toggle.on .toggle-knob { transform: translateX(16px); }
+/* ── Buttons ── */
+.btn {
+  padding: 7px 14px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .3; cursor: default; }
+.btn.accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.btn.accent:hover { background: #d4eb3a; }
+.btn.sm { padding: 4px 9px; font-size: 0.72rem; }
 
-  /* ── Log / progress ── */
-  .log-panel {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--border);
-    background: #0a0a0a;
-    max-height: 220px;
-    overflow-y: auto;
-    padding: 14px 24px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.74rem;
-    line-height: 1.7;
-  }
-  .log-ok    { color: var(--ok); }
-  .log-skip  { color: var(--muted); }
-  .log-warn  { color: var(--warn); }
-  .log-error { color: var(--error); }
-  .log-track { color: #8899aa; }
-  .log-done  { color: var(--accent); font-weight: 500; }
+/* ── Playlist items ── */
+.pl-controls { display: flex; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+.pl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  transition: background .1s; user-select: none;
+}
+.pl-item:hover { background: var(--surface); }
+.pl-item.on { background: #1d2900; }
+.chk {
+  width: 16px; height: 16px; border: 1.5px solid var(--border); border-radius: 3px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .12s;
+}
+.pl-item.on .chk { background: var(--accent); border-color: var(--accent); }
+.chk-mark { font-size: 10px; color: #000; }
+.pl-name { font-size: 0.85rem; flex: 1; }
+.pl-count { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); }
 
-  .summary-box {
-    margin-top: 10px;
-    padding: 12px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
-  }
-  .summary-stat { display: flex; flex-direction: column; gap: 2px; }
-  .summary-val { font-size: 1.1rem; color: var(--accent); }
-  .summary-key { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+/* ── Folder browser ── */
+.breadcrumb {
+  font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted);
+  margin-bottom: 8px; padding: 7px 10px; background: var(--surface); border-radius: 5px;
+  word-break: break-all; line-height: 1.5; flex-shrink: 0;
+}
+.breadcrumb strong { color: var(--accent); }
+.f-item {
+  display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+  border-radius: 5px; cursor: pointer; font-size: 0.83rem; transition: background .1s;
+}
+.f-item:hover { background: var(--surface); }
+.f-item.drive-row { color: var(--accent2); font-weight: 500; }
+.f-item.up-row { color: var(--muted); }
+.f-actions {
+  flex-shrink: 0; display: flex; gap: 7px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center;
+}
+.new-folder-row { display: flex; gap: 5px; flex: 1; }
+.nf-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+  padding: 6px 9px; font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--text); outline: none; min-width: 0;
+}
+.nf-input:focus { border-color: var(--accent); }
+.dest-badge {
+  font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 6px 10px;
+  background: #182300; border: 1px solid #3a5200; border-radius: 5px; color: var(--ok);
+  word-break: break-all; margin-top: 8px; flex-shrink: 0;
+}
 
-  .empty { color: var(--muted); font-size: 0.83rem; padding: 20px 0; }
-  .spinner {
-    display: inline-block; width: 14px; height: 14px;
-    border: 2px solid var(--border); border-top-color: var(--accent);
-    border-radius: 50%; animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── Bottom bar ── */
+.bottom-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+}
+.bottom-info { flex: 1; font-size: 0.8rem; color: var(--muted); }
+.bottom-info strong { color: var(--text); }
+.toggle-row { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--muted); }
+.toggle { width: 34px; height: 19px; background: var(--border); border-radius: 10px; cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); }
+.toggle-knob { position: absolute; top: 2.5px; left: 2.5px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; }
+.toggle.on .toggle-knob { transform: translateX(15px); }
+
+/* ── Log ── */
+.log-area {
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: #080808;
+  padding: 10px 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+.l-ok    { color: var(--ok); }
+.l-skip  { color: var(--muted); }
+.l-warn  { color: var(--warn); }
+.l-error { color: var(--error); }
+.l-track { color: #6688aa; }
+.l-done  { color: var(--accent); font-weight: 500; }
+
+.summary {
+  margin-top: 8px; padding: 10px 14px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 7px;
+  display: flex; flex-wrap: wrap; gap: 18px;
+}
+.s-stat { display: flex; flex-direction: column; gap: 1px; }
+.s-val  { font-size: 1rem; color: var(--accent); }
+.s-key  { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.empty  { color: var(--muted); font-size: 0.8rem; padding: 16px 0; }
+.spin   { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
+const BASE = "http://localhost:5123";
+const api = async (url, opts) => { const r = await fetch(BASE + url, opts); return r.json(); };
 
-const API_BASE = "http://localhost:5123";
-const api = async (url, opts) => {
-  debugger;
-  const r = await fetch(API_BASE + url, opts);
-  return r.json();
-};
+// ── Playlist checklist (reused in both tabs) ──────────────────────────────────
+function PlaylistPicker({ playlists, selected, setSelected, loading }) {
+  const all  = () => setSelected(new Set(playlists.map(p => p.name)));
+  const none = () => setSelected(new Set());
+  const toggle = name => setSelected(prev => {
+    const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n;
+  });
+  return (
+    <>
+      {playlists.length > 0 && (
+        <div className="pl-controls">
+          <button className="btn sm" onClick={all}>All</button>
+          <button className="btn sm" onClick={none}>None</button>
+        </div>
+      )}
+      {loading && <div className="empty"><span className="spin"/> Parsing…</div>}
+      {!loading && playlists.length === 0 && <div className="empty">No playlists loaded.</div>}
+      {playlists.map(pl => (
+        <div key={pl.name} className={`pl-item ${selected.has(pl.name) ? "on" : ""}`} onClick={() => toggle(pl.name)}>
+          <div className="chk">{selected.has(pl.name) && <span className="chk-mark">✓</span>}</div>
+          <span className="pl-name">{pl.name}</span>
+          <span className="pl-count">{pl.count} trk</span>
+        </div>
+      ))}
+    </>
+  );
+}
 
-// ── Folder Browser ─────────────────────────────────────────────────────────────
+// ── Folder browser ────────────────────────────────────────────────────────────
 function FolderBrowser({ onSelect }) {
-  const [current, setCurrent]       = useState(null);
-  const [dirs, setDirs]             = useState([]);
-  const [drives, setDrives]         = useState([]);
-  const [parent, setParent]         = useState(null);
-  const [newName, setNewName]       = useState("");
-  const [selected, setSelected]     = useState("");
-  const [loading, setLoading]       = useState(false);
+  const [current, setCurrent] = useState(null);
+  const [dirs, setDirs]       = useState([]);
+  const [drives, setDrives]   = useState([]);
+  const [parent, setParent]   = useState(null);
+  const [newName, setNewName] = useState("");
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const browse = useCallback(async (path) => {
+  const browse = useCallback(async path => {
     setLoading(true);
-    const data = await api(`/api/browse${path ? "?path="+encodeURIComponent(path) : ""}`);
+    const d = await api(`/api/browse${path ? "?path=" + encodeURIComponent(path) : ""}`);
     setLoading(false);
-    if (data.error) return;
-    setCurrent(data.current || null);
-    setDirs(data.dirs || []);
-    setDrives(data.drives || []);
-    setParent(data.parent || null);
+    if (d.error) return;
+    setCurrent(d.current || null); setDirs(d.dirs || []);
+    setDrives(d.drives || []); setParent(d.parent || null);
   }, []);
 
   useEffect(() => { browse(""); }, []);
 
   const mkdir = async () => {
     if (!newName.trim() || !current) return;
-    const data = await api("/api/mkdir", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ parent: current, name: newName.trim() })
-    });
-    if (data.path) { setNewName(""); browse(data.path); }
+    const d = await api("/api/mkdir", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ parent: current, name: newName.trim() }) });
+    if (d.path) { setNewName(""); browse(d.path); }
   };
 
-  const selectThis = () => {
-    if (!current) return;
-    setSelected(current);
-    onSelect(current);
-  };
-
-  const shortName = p => p ? p.split(/[\\/]/).filter(Boolean).pop() || p : "";
+  const short = p => p ? p.replace(/\\/g,"/").split("/").filter(Boolean).pop() || p : "";
 
   return (
-    <div className="folder-browser">
+    <div style={{display:"flex", flexDirection:"column", height:"100%", minHeight:0}}>
       {current
         ? <div className="breadcrumb">📂 <strong>{current}</strong></div>
-        : <div className="breadcrumb">Choose a drive to start</div>
-      }
+        : <div className="breadcrumb">Choose a drive</div>}
 
-      <div className="folder-list">
-        {/* Back up */}
-        {current && parent && (
-          <div className="folder-item up" onClick={() => browse(parent)}>
-            <span className="folder-icon">↩</span> Go up
-          </div>
-        )}
-        {/* Drive list when at root */}
-        {!current && drives.map(d => (
-          <div key={d} className="folder-item drive" onClick={() => browse(d)}>
-            <span className="folder-icon">💾</span> {d}
-          </div>
-        ))}
-        {/* Drives shortcut when browsing */}
-        {current && (
-          <div className="folder-item drive" onClick={() => { setCurrent(null); setDirs([]); setParent(null); browse(""); }}>
-            <span className="folder-icon">💾</span> <span style={{color:"var(--muted)"}}>Switch drive…</span>
-          </div>
-        )}
-        {loading && <div className="empty"><span className="spinner"/> Loading…</div>}
-        {dirs.map(d => (
-          <div key={d} className="folder-item" onClick={() => browse(d)}>
-            <span className="folder-icon">📁</span> {shortName(d)}
-          </div>
-        ))}
-        {!loading && current && dirs.length === 0 && (
-          <div className="empty">Empty folder</div>
-        )}
+      {/* scrollable folder list */}
+      <div style={{flex:1, overflowY:"auto", minHeight:0}}>
+        {current && parent &&
+          <div className="f-item up-row" onClick={() => browse(parent)}>↩ Go up</div>}
+        {!current && drives.map(d =>
+          <div key={d} className="f-item drive-row" onClick={() => browse(d)}>💾 {d}</div>)}
+        {current &&
+          <div className="f-item drive-row" onClick={() => { setCurrent(null); setDirs([]); browse(""); }}>
+            💾 <span style={{color:"var(--muted)"}}>Switch drive…</span>
+          </div>}
+        {loading && <div className="empty"><span className="spin"/> Loading…</div>}
+        {dirs.map(d => <div key={d} className="f-item" onClick={() => browse(d)}>📁 {short(d)}</div>)}
+        {!loading && current && dirs.length === 0 && <div className="empty">Empty folder</div>}
       </div>
 
-      <div className="folder-actions">
+      <div className="f-actions">
         <div className="new-folder-row">
-          <input
-            className="new-folder-input"
-            placeholder="New folder name…"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && mkdir()}
-          />
-          <button className="btn btn-sm" onClick={mkdir} disabled={!newName.trim() || !current}>
-            + Create
-          </button>
+          <input className="nf-input" placeholder="New folder name…" value={newName}
+            onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key==="Enter" && mkdir()}/>
+          <button className="btn sm" onClick={mkdir} disabled={!newName.trim()||!current}>+ Create</button>
         </div>
-        <button className="btn btn-accent btn-sm" onClick={selectThis} disabled={!current}>
-          ✅ Select this folder
+        <button className="btn sm accent" onClick={() => { setSelected(current); onSelect(current); }} disabled={!current}>
+          ✅ Select
         </button>
       </div>
+      {selected && <div className="dest-badge">✓ {selected}</div>}
+    </div>
+  );
+}
 
-      {selected && (
-        <div className="selected-dest">
-          ✓ Destination: {selected}
+// ── Log display ───────────────────────────────────────────────────────────────
+function LogPanel({ log }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [log]);
+  const cls = t => ({ ok:"l-ok", skip:"l-skip", warn:"l-warn", error:"l-error", track:"l-track", done:"l-done" }[t] || "");
+  const summary = (log.find(l => l.type==="done") || {}).summary;
+  if (!log.length) return null;
+  return (
+    <div className="log-area" ref={ref}>
+      {log.filter(l => l.type !== "done").map((l,i) => <div key={i} className={cls(l.type)}>{l.msg}</div>)}
+      {summary && (
+        <div className="summary">
+          <div className="s-stat"><span className="s-val">{summary.pl_exported ?? summary.created+summary.updated}</span><span className="s-key">Playlists</span></div>
+          {summary.tr_copied > 0 && <div className="s-stat"><span className="s-val">{summary.tr_copied}</span><span className="s-key">Tracks copied</span></div>}
+          {summary.added_tracks > 0 && <div className="s-stat"><span className="s-val">{summary.added_tracks}</span><span className="s-key">Tracks added</span></div>}
+          {summary.bytes_copied && summary.bytes_copied !== "—" && <div className="s-stat"><span className="s-val">{summary.bytes_copied}</span><span className="s-key">Data</span></div>}
+          {summary.tr_skipped > 0 && <div className="s-stat"><span className="s-val" style={{color:"var(--muted)"}}>{summary.tr_skipped}</span><span className="s-key">Skipped</span></div>}
+          {summary.tr_missing > 0 && <div className="s-stat"><span className="s-val" style={{color:"var(--error)"}}>{summary.tr_missing}</span><span className="s-key">Not found</span></div>}
+          {summary.created  > 0 && <div className="s-stat"><span className="s-val">{summary.created}</span><span className="s-key">Created</span></div>}
+          {summary.updated  > 0 && <div className="s-stat"><span className="s-val" style={{color:"var(--warn)"}}>{summary.updated}</span><span className="s-key">Updated</span></div>}
         </div>
       )}
     </div>
   );
 }
 
-// ── Main App ───────────────────────────────────────────────────────────────────
-function App() {
-  const [nmlPath, setNmlPath]         = useState("");
-  const [playlists, setPlaylists]     = useState([]);
-  const [loadingPl, setLoadingPl]     = useState(false);
-  const [selected, setSelected]       = useState(new Set());
-  const [dest, setDest]               = useState("");
-  const [copyTracks, setCopyTracks]   = useState(true);
-  const [exporting, setExporting]     = useState(false);
-  const [log, setLog]                 = useState([]);
-  const [summary, setSummary]         = useState(null);
-  const logRef                        = useRef(null);
-  const pollRef                       = useRef(null);
+// ── Export Tab ────────────────────────────────────────────────────────────────
+function ExportTab({ log, setLog, setExporting, exporting }) {
+  const [nmlPath, setNmlPath]     = useState("");
+  const [playlists, setPlaylists] = useState([]);
+  const [selected, setSelected]   = useState(new Set());
+  const [dest, setDest]           = useState("");
+  const [copyTracks, setCopy]     = useState(true);
+  const [loading, setLoading]     = useState(false);
+  const pollRef = useRef(null);
 
-  // Auto-detect NML on mount
   useEffect(() => {
-    api("/api/detect-nml").then(d => {
-      debugger;
-      console.log(d?.path);
-      if (d.path) { setNmlPath(d.path); loadPlaylists(d.path); }
-    });
+    api("/api/detect-nml").then(d => { if (d.path) { setNmlPath(d.path); load(d.path); } });
   }, []);
 
-  const loadPlaylists = async (path) => {
-
-      debugger;
+  const load = async path => {
     if (!path) return;
-    setLoadingPl(true);
-    setPlaylists([]);
-    const data = await api(`/api/parse-nml?path=${encodeURIComponent(path)}`);
-    setLoadingPl(false);
-    if (data.playlists) {
-      setPlaylists(data.playlists);
-      setSelected(new Set(data.playlists.map(p => p.name)));
-    }
+    setLoading(true); setPlaylists([]);
+    const d = await api(`/api/parse-nml?path=${encodeURIComponent(path)}`);
+    setLoading(false);
+    if (d.playlists) { setPlaylists(d.playlists); setSelected(new Set(d.playlists.map(p => p.name))); }
   };
-
-  const toggle = (name) => {
-    setSelected(prev => {
-      const n = new Set(prev);
-      n.has(name) ? n.delete(name) : n.add(name);
-      return n;
-    });
-  };
-  const selectAll  = () => setSelected(new Set(playlists.map(p => p.name)));
-  const selectNone = () => setSelected(new Set());
 
   const startExport = async () => {
-    if (!nmlPath || !dest || selected.size === 0) return;
-    setLog([]);
-    setSummary(null);
-    setExporting(true);
-
-    await api("/api/export", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        nml_path: nmlPath,
-        dest,
-        selected: [...selected],
-        copy_tracks: copyTracks,
-      })
-    });
-
-    // Poll progress
+    if (!nmlPath || !dest || !selected.size) return;
+    setLog([]); setExporting(true);
+    await api("/api/export", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ nml_path: nmlPath, dest, selected: [...selected], copy_tracks: copyTracks }) });
     pollRef.current = setInterval(async () => {
-      const data = await api("/api/progress");
-      setLog(data.log || []);
-      const doneEntry = (data.log || []).find(l => l.type === "done");
-      if (doneEntry?.summary) setSummary(doneEntry.summary);
-      if (data.done) {
-        clearInterval(pollRef.current);
-        setExporting(false);
-      }
+      const d = await api("/api/progress");
+      setLog(d.log || []);
+      if (d.done) { clearInterval(pollRef.current); setExporting(false); }
     }, 400);
   };
 
-  // Auto-scroll log
+  return (
+    <div className="page">
+      <div className="path-row">
+        <span className="path-label">collection.nml</span>
+        <input className="path-input" value={nmlPath} onChange={e => setNmlPath(e.target.value)}
+          placeholder="Path to collection.nml…" onKeyDown={e => e.key==="Enter" && load(nmlPath)}/>
+        <button className="btn sm" onClick={() => load(nmlPath)} disabled={!nmlPath||loading}>
+          {loading ? <span className="spin"/> : "Load"}
+        </button>
+      </div>
+
+      <div className="columns">
+        <div className="col">
+          <div className="col-header">
+            <span className="col-title">Traktor Playlists</span>
+            <span style={{fontFamily:"DM Mono,monospace",fontSize:"0.67rem",color:"var(--muted)"}}>{selected.size}/{playlists.length}</span>
+          </div>
+          <div className="col-body">
+            <PlaylistPicker playlists={playlists} selected={selected} setSelected={setSelected} loading={loading}/>
+          </div>
+        </div>
+
+        <div className="col">
+          <div className="col-header"><span className="col-title">Destination Folder</span></div>
+          <div className="col-body">
+            <FolderBrowser onSelect={setDest}/>
+          </div>
+        </div>
+      </div>
+
+      <div className="bottom-bar">
+        <div className="bottom-info">
+          <strong>{selected.size}</strong> playlist{selected.size!==1?"s":""} selected
+          {dest && <> → <strong style={{color:"var(--accent)"}}>{dest}</strong></>}
+        </div>
+        <div className="toggle-row">
+          <div className={`toggle ${copyTracks?"on":""}`} onClick={() => setCopy(v=>!v)}>
+            <div className="toggle-knob"/>
+          </div>
+          Copy audio
+        </div>
+        <button className="btn accent" onClick={startExport} disabled={!nmlPath||!dest||!selected.size||exporting}>
+          {exporting ? <><span className="spin"/> Exporting…</> : "Export →"}
+        </button>
+      </div>
+      <LogPanel log={log}/>
+    </div>
+  );
+}
+
+// ── iTunes Sync Tab ───────────────────────────────────────────────────────────
+function ItunesTab({ log, setLog, setExporting, exporting }) {
+  const [itunesPath, setItunesPath] = useState("");
+  const [nmlPath, setNmlPath]       = useState("");
+  const [playlists, setPlaylists]   = useState([]);
+  const [selected, setSelected]     = useState(new Set());
+  const [loading, setLoading]       = useState(false);
+  const pollRef = useRef(null);
+
   useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [log]);
+    api("/api/detect-itunes").then(d => { if (d.path) { setItunesPath(d.path); load(d.path); } });
+    api("/api/detect-nml").then(d => { if (d.path) setNmlPath(d.path); });
+  }, []);
 
-  const logClass = t => ({ ok:"log-ok", skip:"log-skip", warn:"log-warn", error:"log-error", track:"log-track", done:"log-done" }[t] || "");
+  const load = async path => {
+    if (!path) return;
+    setLoading(true); setPlaylists([]);
+    const d = await api(`/api/parse-itunes?path=${encodeURIComponent(path)}`);
+    setLoading(false);
+    if (d.playlists) { setPlaylists(d.playlists); setSelected(new Set(d.playlists.map(p => p.name))); }
+    if (d.error) alert("Error: " + d.error);
+  };
 
-  const canExport = nmlPath && dest && selected.size > 0 && !exporting;
+  const startSync = async () => {
+    if (!itunesPath || !nmlPath || !selected.size) return;
+    setLog([]); setExporting(true);
+    await api("/api/sync-itunes", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ itunes_path: itunesPath, nml_path: nmlPath, selected: [...selected] }) });
+    pollRef.current = setInterval(async () => {
+      const d = await api("/api/progress");
+      setLog(d.log || []);
+      if (d.done) { clearInterval(pollRef.current); setExporting(false); }
+    }, 400);
+  };
 
   return (
-    <div className="app">
+    <div className="page">
+      <div className="path-row">
+        <span className="path-label">iTunes XML</span>
+        <input className="path-input" value={itunesPath} onChange={e => setItunesPath(e.target.value)}
+          placeholder="Path to iTunes Music Library.xml…" onKeyDown={e => e.key==="Enter" && load(itunesPath)}/>
+        <button className="btn sm" onClick={() => load(itunesPath)} disabled={!itunesPath||loading}>
+          {loading ? <span className="spin"/> : "Load"}
+        </button>
+      </div>
+
+      <div className="path-row" style={{borderTop:"none"}}>
+        <span className="path-label">collection.nml</span>
+        <input className="path-input" value={nmlPath} onChange={e => setNmlPath(e.target.value)}
+          placeholder="Path to Traktor collection.nml…"/>
+      </div>
+
+      <div className="columns">
+        <div className="col">
+          <div className="col-header">
+            <span className="col-title">iTunes Playlists</span>
+            <span style={{fontFamily:"DM Mono,monospace",fontSize:"0.67rem",color:"var(--muted)"}}>{selected.size}/{playlists.length}</span>
+          </div>
+          <div className="col-body">
+            <PlaylistPicker playlists={playlists} selected={selected} setSelected={setSelected} loading={loading}/>
+          </div>
+        </div>
+
+        <div className="col">
+          <div className="col-header"><span className="col-title">What happens</span></div>
+          <div className="col-body">
+            <div style={{fontSize:"0.83rem", lineHeight:1.8, color:"var(--muted)"}}>
+              <p style={{color:"var(--text)", marginBottom:12}}>
+                Selected iTunes playlists will be created or updated directly inside your Traktor <code style={{color:"var(--accent)"}}>collection.nml</code>.
+              </p>
+              <p>• Tracks already in Traktor's collection are matched and reused.</p>
+              <p>• New tracks are added to Traktor's <strong style={{color:"var(--text)"}}>COLLECTION</strong>.</p>
+              <p>• If a playlist with the same name exists in Traktor it will be <strong style={{color:"var(--warn)"}}>replaced</strong>.</p>
+              <p>• Audio files are <strong style={{color:"var(--text)"}}>not moved</strong> — only the references are updated.</p>
+              <p style={{marginTop:12, color:"var(--warn)"}}>⚠ Close Traktor before syncing.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bottom-bar">
+        <div className="bottom-info">
+          <strong>{selected.size}</strong> iTunes playlist{selected.size!==1?"s":""} will sync to Traktor
+        </div>
+        <button className="btn accent" onClick={startSync} disabled={!itunesPath||!nmlPath||!selected.size||exporting}>
+          {exporting ? <><span className="spin"/> Syncing…</> : "Sync to Traktor →"}
+        </button>
+      </div>
+      <LogPanel log={log}/>
+    </div>
+  );
+}
+
+// ── App root ──────────────────────────────────────────────────────────────────
+function App() {
+  const [tab, setTab]         = useState("export");
+  const [log, setLog]         = useState([]);
+  const [exporting, setExp]   = useState(false);
+
+  return (
+    <div className="shell">
       <header>
         <h1>Traktor Exporter</h1>
-        <span>playlist &amp; track export tool</span>
+        <span>playlist export &amp; sync tool</span>
       </header>
-
-      <div style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
-        {/* NML path row */}
-        <div className="nml-row">
-          <span className="nml-label">collection.nml</span>
-          <input
-            className="nml-path"
-            value={nmlPath}
-            onChange={e => setNmlPath(e.target.value)}
-            placeholder="Path to collection.nml…"
-            onKeyDown={e => e.key === "Enter" && loadPlaylists(nmlPath)}
-          />
-          <button className="btn" onClick={() => loadPlaylists(nmlPath)} disabled={!nmlPath || loadingPl}>
-            {loadingPl ? <span className="spinner"/> : "Load"}
-          </button>
-        </div>
-
-        {/* Two-column panels */}
-        <div className="main" style={{flex:1}}>
-          {/* LEFT — Playlist selector */}
-          <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Playlists</span>
-              <span style={{fontFamily:"DM Mono, monospace", fontSize:"0.7rem", color:"var(--muted)"}}>
-                {selected.size}/{playlists.length} selected
-              </span>
-            </div>
-            <div className="panel-body">
-              {playlists.length === 0 && !loadingPl && (
-                <div className="empty">No playlists loaded. Enter your collection.nml path above.</div>
-              )}
-              {loadingPl && <div className="empty"><span className="spinner"/> Parsing collection…</div>}
-              {playlists.length > 0 && (
-                <>
-                  <div className="playlist-controls">
-                    <button className="btn btn-sm" onClick={selectAll}>All</button>
-                    <button className="btn btn-sm" onClick={selectNone}>None</button>
-                  </div>
-                  {playlists.map(pl => (
-                    <div
-                      key={pl.name}
-                      className={`playlist-item ${selected.has(pl.name) ? "selected" : ""}`}
-                      onClick={() => toggle(pl.name)}
-                    >
-                      <div className="checkbox">
-                        {selected.has(pl.name) && <span className="checkmark">✓</span>}
-                      </div>
-                      <span className="pl-name">{pl.name}</span>
-                      <span className="pl-count">{pl.count} tracks</span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT — Destination folder */}
-          <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Destination Folder</span>
-              {dest && <span style={{fontFamily:"DM Mono, monospace", fontSize:"0.68rem", color:"var(--ok)"}}>✓ set</span>}
-            </div>
-            <div className="panel-body">
-              <FolderBrowser onSelect={setDest} />
-            </div>
-          </div>
-        </div>
-
-        {/* Export bar */}
-        <div className="export-bar">
-          <div className="export-info">
-            <strong>{selected.size}</strong> playlist{selected.size !== 1 ? "s" : ""} selected
-            {dest && <> → <strong style={{color:"var(--accent)", wordBreak:"break-all"}}>{dest}</strong></>}
-          </div>
-          <div className="toggle-row">
-            <div className={`toggle ${copyTracks ? "on" : ""}`} onClick={() => setCopyTracks(v => !v)}>
-              <div className="toggle-knob"/>
-            </div>
-            Copy audio files
-          </div>
-          <button className="btn btn-accent" onClick={startExport} disabled={!canExport}>
-            {exporting ? <><span className="spinner"/> Exporting…</> : "Export →"}
-          </button>
-        </div>
-
-        {/* Log */}
-        {log.length > 0 && (
-          <div className="log-panel" ref={logRef}>
-            {log.filter(l => l.type !== "done").map((l, i) => (
-              <div key={i} className={logClass(l.type)}>{l.msg}</div>
-            ))}
-            {summary && (
-              <div className="summary-box">
-                <div className="summary-stat">
-                  <span className="summary-val">{summary.pl_exported}</span>
-                  <span className="summary-key">Playlists exported</span>
-                </div>
-                {summary.pl_skipped > 0 && (
-                  <div className="summary-stat">
-                    <span className="summary-val" style={{color:"var(--muted)"}}>{summary.pl_skipped}</span>
-                    <span className="summary-key">Playlists skipped</span>
-                  </div>
-                )}
-                {copyTracks && <>
-                  <div className="summary-stat">
-                    <span className="summary-val">{summary.tr_copied}</span>
-                    <span className="summary-key">Tracks copied</span>
-                  </div>
-                  <div className="summary-stat">
-                    <span className="summary-val">{summary.bytes_copied}</span>
-                    <span className="summary-key">Data transferred</span>
-                  </div>
-                  {summary.tr_skipped > 0 && (
-                    <div className="summary-stat">
-                      <span className="summary-val" style={{color:"var(--muted)"}}>{summary.tr_skipped}</span>
-                      <span className="summary-key">Already on drive</span>
-                    </div>
-                  )}
-                  {summary.tr_missing > 0 && (
-                    <div className="summary-stat">
-                      <span className="summary-val" style={{color:"var(--error)"}}>{summary.tr_missing}</span>
-                      <span className="summary-key">Not found</span>
-                    </div>
-                  )}
-                </>}
-              </div>
-            )}
-          </div>
-        )}
+      <div className="tabs">
+        <div className={`tab ${tab==="export"?"active":""}`} onClick={() => setTab("export")}>Export to USB</div>
+        <div className={`tab ${tab==="itunes"?"active":""}`} onClick={() => setTab("itunes")}>Sync from iTunes</div>
       </div>
+      {tab === "export"
+        ? <ExportTab log={log} setLog={setLog} exporting={exporting} setExporting={setExp}/>
+        : <ItunesTab log={log} setLog={setLog} exporting={exporting} setExporting={setExp}/>}
     </div>
   );
 }

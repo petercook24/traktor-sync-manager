@@ -8,10 +8,12 @@ Run:           python traktor_server.py
 Then open:     http://localhost:5123
 """
 
-import os, sys, re, shutil, json, threading, time
+import os, sys, re, shutil, json, threading, uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from xml.dom import minidom
 from flask import Flask, jsonify, request, send_from_directory
+
 try:
     from flask_cors import CORS
     _has_cors = True
@@ -47,60 +49,158 @@ def traktor_path_to_os(volume, path_str):
         return str(Path(volume) / clean) if volume else clean
     return os.sep + clean
 
-def find_collection_nml():
-    base = Path.home() / "Documents" / "Native Instruments" / "Traktor 3.11.1"
-    candidates = sorted(base.glob("*/collection.nml"), reverse=True)
-    candidates += [base / "collection.nml"]
-    for p in candidates:
-        if Path(p).exists(): return str(p)
-    return None
-
-def get_drives():
-    drives = []
+def os_path_to_traktor(path_str):
+    """Convert a normal OS path to Traktor's volume / dir / file components."""
+    p = Path(path_str)
     if sys.platform == "win32":
-        import ctypes
-        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
-        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-            if bitmask & 1:
-                p = Path(f"{letter}:\\")
-                if p.exists(): drives.append(str(p))
-            bitmask >>= 1
-    elif sys.platform == "darwin":
-        for v in Path("/Volumes").iterdir():
-            if v.is_dir() and v.name not in ("Macintosh HD","Preboot","Recovery","VM"):
-                drives.append(str(v))
+        drive    = p.drive                          # e.g. "G:"
+        parts    = list(p.parts[1:])               # parts after drive
+        filename = parts[-1] if parts else ""
+        folders  = parts[:-1]
+        dir_str  = "".join(f"/:{f}" for f in folders) + "/:" if folders else "/:"
+        return drive, dir_str, filename
     else:
-        drives.append(str(Path.home()))
-    return drives
+        parts    = list(p.parts)
+        filename = parts[-1] if len(parts) > 1 else ""
+        folders  = parts[1:-1]
+        dir_str  = "".join(f"/:{f}" for f in folders) + "/:" if folders else "/:"
+        return "", dir_str, filename
 
 def traktor_key_to_path(key):
-    """
-    Convert a Traktor PRIMARYKEY value to an OS path.
-    Keys look like: G:/:peter/:Music/:track.mp3
-    The drive letter prefix (e.g. G:) is followed by /: separated folders.
-    """
-    if not key:
-        return ""
-    # Match optional drive letter at start: e.g. "G:"
+    """Convert a Traktor PRIMARYKEY value (G:/:Music/:track.mp3) to an OS path."""
+    if not key: return ""
     m = re.match(r"^([A-Za-z]:)(.*)", key)
     if m:
-        drive = m.group(1)          # e.g. "G:"
-        rest  = m.group(2)          # e.g. "/:peter/:Music/:track.mp3"
-        # strip leading /: then split on /:
-        rest  = re.sub(r"^/:", "", rest)
+        drive = m.group(1)
+        rest  = re.sub(r"^/:", "", m.group(2))
         parts = rest.split("/:")
         return drive + "\\" + "\\".join(parts)
-    else:
-        # macOS / Linux style: /:Users/:name/:Music/:track.mp3
-        clean = re.sub(r"^/:", "", key).replace("/:", os.sep)
-        return os.sep + clean
+    clean = re.sub(r"^/:", "", key).replace("/:", os.sep)
+    return os.sep + clean
+
+# ── Traktor NML detection ──────────────────────────────────────────────────────
+
+def find_collection_nml():
+    """Auto-detect the latest Traktor version's collection.nml."""
+    home = Path.home()
+
+    # Search these parent directories for any Traktor versioned folder
+    search_roots = [
+        home / "Documents" / "Native Instruments",
+        home / "OneDrive" / "Documents" / "Native Instruments",
+        home / "OneDrive - Personal" / "Documents" / "Native Instruments",
+        # Also search one level deeper in case there's a plain "Traktor" subfolder
+        home / "Documents" / "Native Instruments" / "Traktor",
+        home / "OneDrive" / "Documents" / "Native Instruments" / "Traktor",
+    ]
+
+    versioned = []
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        try:
+            for d in root.iterdir():
+                if not d.is_dir():
+                    continue
+                # Match "Traktor 3.11.1", "Traktor Pro 3.11.1", etc.
+                m = re.search(r"(\d+)\.(\d+)\.(\d+)", d.name)
+                if m and d.name.lower().startswith("traktor"):
+                    nml = d / "collection.nml"
+                    if nml.exists():
+                        version_tuple = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                        versioned.append((version_tuple, nml))
+                # Plain "Traktor" folder with flat collection.nml inside
+                if d.name.lower() == "traktor":
+                    flat = d / "collection.nml"
+                    if flat.exists():
+                        versioned.append(((0, 0, 0), flat))
+        except PermissionError:
+            continue
+
+        # Also check collection.nml directly inside the root itself
+        flat = root / "collection.nml"
+        if flat.exists():
+            versioned.append(((0, 0, 0), flat))
+
+    if versioned:
+        versioned.sort(key=lambda x: x[0], reverse=True)
+        return str(versioned[0][1])
+
+    return None
+
+# ── iTunes / Music library parsing ────────────────────────────────────────────
+
+def find_itunes_library():
+    """Try to auto-detect iTunes / Apple Music library XML."""
+    candidates = []
+    if sys.platform == "win32":
+        candidates = [
+            Path.home() / "Music" / "iTunes" / "iTunes Music Library.xml",
+            Path.home() / "Music" / "iTunes" / "iTunes Library.xml",
+        ]
+    elif sys.platform == "darwin":
+        candidates = [
+            Path.home() / "Music" / "iTunes" / "iTunes Music Library.xml",
+            Path.home() / "Music" / "Music" / "iTunes Music Library.xml",
+            Path.home() / "Music" / "iTunes" / "iTunes Library.xml",
+        ]
+    for p in candidates:
+        if p.exists(): return str(p)
+    return None
+
+def parse_itunes_library(xml_path):
+    """
+    Parse iTunes/Music Library XML and return list of playlists with tracks.
+    iTunes XML uses Apple's plist format.
+    """
+    import plistlib
+    with open(xml_path, "rb") as f:
+        lib = plistlib.load(f)
+
+    # Build track id -> track info map
+    raw_tracks = lib.get("Tracks", {})
+    tracks = {}
+    for tid, t in raw_tracks.items():
+        loc = t.get("Location", "")
+        # Convert file:// URL to OS path
+        if loc.startswith("file://"):
+            from urllib.parse import unquote
+            loc = unquote(loc[7:])
+            if sys.platform == "win32":
+                loc = loc.lstrip("/").replace("/", "\\")
+        tracks[tid] = {
+            "path":   loc,
+            "title":  t.get("Name", ""),
+            "artist": t.get("Artist", ""),
+            "album":  t.get("Album", ""),
+        }
+
+    playlists = []
+    for pl in lib.get("Playlists", []):
+        name = pl.get("Name", "Unnamed")
+        # Skip system playlists
+        if pl.get("Master") or pl.get("Music") or pl.get("Movies") \
+           or pl.get("TV Shows") or pl.get("Podcasts") or pl.get("Audiobooks") \
+           or pl.get("Purchased Music") or pl.get("Distinguished Kind"):
+            continue
+        items = pl.get("Playlist Items", [])
+        entries = []
+        for item in items:
+            tid = str(item.get("Track ID", ""))
+            if tid in tracks:
+                entries.append(tracks[tid])
+        if entries:
+            playlists.append({"name": name, "tracks": entries})
+
+    return playlists
+
+# ── Traktor NML parsing ────────────────────────────────────────────────────────
 
 def parse_nml(nml_path):
     tree = ET.parse(nml_path)
     root = tree.getroot()
 
-    # Build track lookup from COLLECTION: key -> track info
-    # Keys are built the same way Traktor stores them in PRIMARYKEY
     tracks = {}
     collection = root.find("COLLECTION")
     if collection is not None:
@@ -110,10 +210,7 @@ def parse_nml(nml_path):
             volume    = loc.get("VOLUME", "")
             dir_attr  = loc.get("DIR", "")
             file_attr = loc.get("FILE", "")
-            # Reconstruct the key as it appears in PRIMARYKEY KEY="..."
-            # e.g. volume="G:" dir="/:peter/:Music/:" file="track.mp3"
-            # -> "G:/:peter/:Music/:track.mp3"
-            key = volume + dir_attr + file_attr
+            key  = volume + dir_attr + file_attr
             path = traktor_path_to_os(volume, dir_attr + file_attr)
             tracks[key] = {
                 "path":   path,
@@ -124,19 +221,14 @@ def parse_nml(nml_path):
     playlists = []
 
     def recurse(node, prefix=""):
-        # Iterate direct NODE children (Traktor wraps them in SUBNODES too)
         for child in list(node):
             tag   = child.tag
             name  = child.get("NAME", "Unnamed")
             ntype = child.get("TYPE", "")
-
             if tag == "SUBNODES":
-                # Transparent wrapper — just recurse into it
                 recurse(child, prefix=prefix)
-
             elif tag == "NODE" and ntype == "PLAYLIST":
                 entries = []
-                # Tracks live inside a <PLAYLIST> child of the NODE
                 pl_node = child.find("PLAYLIST")
                 if pl_node is not None:
                     for e in pl_node.findall("ENTRY"):
@@ -146,19 +238,9 @@ def parse_nml(nml_path):
                         if k in tracks:
                             entries.append(tracks[k])
                         else:
-                            # Key not in collection — derive path directly from key
-                            entries.append({
-                                "path":   traktor_key_to_path(k),
-                                "title":  "",
-                                "artist": "",
-                            })
-                playlists.append({
-                    "name":   (prefix + name) if prefix else name,
-                    "tracks": entries,
-                })
-
+                            entries.append({"path": traktor_key_to_path(k), "title": "", "artist": ""})
+                playlists.append({"name": (prefix + name) if prefix else name, "tracks": entries})
             elif tag == "NODE" and ntype == "FOLDER":
-                # Skip the $ROOT folder name itself but recurse into its children
                 new_prefix = (prefix + name + " - ") if name != "$ROOT" else prefix
                 recurse(child, prefix=new_prefix)
 
@@ -167,8 +249,144 @@ def parse_nml(nml_path):
         recurse(sets)
     return playlists
 
-# Progress state (simple global for SSE streaming)
-progress_log = []
+# ── NML builder ───────────────────────────────────────────────────────────────
+
+def build_nml_for_playlist(playlist, dest_path, copy_tracks):
+    """Build a Traktor-compatible NML string for a single playlist."""
+    nml = ET.Element("NML", attrib={"VERSION": "19"})
+    ET.SubElement(nml, "HEAD", attrib={"COMPANY": "www.native-instruments.com", "PROGRAM": "Traktor"})
+    collection = ET.SubElement(nml, "COLLECTION", attrib={"ENTRIES": str(len(playlist["tracks"]))})
+    sets      = ET.SubElement(nml, "PLAYLISTS")
+    root_node = ET.SubElement(sets, "NODE", attrib={"TYPE": "FOLDER", "NAME": "$ROOT"})
+    subnodes  = ET.SubElement(root_node, "SUBNODES", attrib={"COUNT": "1"})
+    pl_node   = ET.SubElement(subnodes, "NODE", attrib={"TYPE": "PLAYLIST", "NAME": playlist["name"]})
+    pl_el     = ET.SubElement(pl_node, "PLAYLIST", attrib={
+        "ENTRIES": str(len(playlist["tracks"])),
+        "TYPE":    "LIST",
+        "UUID":    uuid.uuid4().hex,
+    })
+
+    for t in playlist["tracks"]:
+        src        = Path(t["path"])
+        final_path = str(dest_path / src.name) if (copy_tracks and src.exists()) else t["path"]
+        volume, dir_str, filename = os_path_to_traktor(final_path)
+
+        entry = ET.SubElement(collection, "ENTRY", attrib={
+            "TITLE":  t.get("title", src.stem),
+            "ARTIST": t.get("artist", ""),
+        })
+        ET.SubElement(entry, "LOCATION", attrib={
+            "DIR": dir_str, "FILE": filename,
+            "VOLUME": volume, "VOLUMEID": volume,
+        })
+        pl_entry = ET.SubElement(pl_el, "ENTRY")
+        ET.SubElement(pl_entry, "PRIMARYKEY", attrib={
+            "TYPE": "TRACK",
+            "KEY":  volume + dir_str + filename,
+        })
+
+    raw    = ET.tostring(nml, encoding="unicode")
+    pretty = minidom.parseString(raw).toprettyxml(indent="\t", encoding=None)
+    lines  = pretty.splitlines()
+    if lines and lines[0].startswith("<?xml"):
+        lines = lines[1:]
+    return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n" + "\n".join(lines)
+
+# ── Traktor collection updater (iTunes sync) ──────────────────────────────────
+
+def sync_itunes_to_traktor(nml_path, itunes_playlists):
+    """
+    Add/update iTunes playlists inside Traktor's collection.nml in-place.
+    - Adds missing tracks to COLLECTION
+    - Creates or replaces matching playlists under PLAYLISTS/$ROOT
+    Returns (added_tracks, updated_playlists, created_playlists).
+    """
+    tree = ET.parse(nml_path)
+    root = tree.getroot()
+
+    # ── Existing tracks index by filename (best-effort match) ──
+    collection = root.find("COLLECTION")
+    if collection is None:
+        collection = ET.SubElement(root, "COLLECTION", attrib={"ENTRIES": "0"})
+
+    existing_keys = set()
+    for entry in collection.findall("ENTRY"):
+        loc = entry.find("LOCATION")
+        if loc is not None:
+            existing_keys.add(loc.get("VOLUME","") + loc.get("DIR","") + loc.get("FILE",""))
+
+    # ── PLAYLISTS root node ──
+    sets = root.find(".//PLAYLISTS")
+    if sets is None:
+        sets = ET.SubElement(root, "PLAYLISTS")
+    root_folder = sets.find("NODE[@NAME='$ROOT']")
+    if root_folder is None:
+        root_folder = ET.SubElement(sets, "NODE", attrib={"TYPE":"FOLDER","NAME":"$ROOT"})
+    subnodes = root_folder.find("SUBNODES")
+    if subnodes is None:
+        subnodes = ET.SubElement(root_folder, "SUBNODES", attrib={"COUNT":"0"})
+
+    added_tracks     = 0
+    updated_pls      = []
+    created_pls      = []
+
+    for pl in itunes_playlists:
+        pl_name = pl["name"]
+
+        # Build / update COLLECTION entries for this playlist's tracks
+        pl_keys = []
+        for t in pl["tracks"]:
+            volume, dir_str, filename = os_path_to_traktor(t["path"])
+            key = volume + dir_str + filename
+            pl_keys.append(key)
+            if key not in existing_keys:
+                entry = ET.SubElement(collection, "ENTRY", attrib={
+                    "TITLE":  t.get("title",""),
+                    "ARTIST": t.get("artist",""),
+                })
+                ET.SubElement(entry, "LOCATION", attrib={
+                    "DIR": dir_str, "FILE": filename,
+                    "VOLUME": volume, "VOLUMEID": volume,
+                })
+                existing_keys.add(key)
+                added_tracks += 1
+
+        # Find existing playlist node by name
+        existing_pl_node = subnodes.find(f"NODE[@NAME='{pl_name}'][@TYPE='PLAYLIST']")
+        if existing_pl_node is not None:
+            subnodes.remove(existing_pl_node)
+            updated_pls.append(pl_name)
+        else:
+            created_pls.append(pl_name)
+
+        # Create fresh playlist node
+        new_node = ET.SubElement(subnodes, "NODE", attrib={"TYPE":"PLAYLIST","NAME":pl_name})
+        new_pl   = ET.SubElement(new_node, "PLAYLIST", attrib={
+            "ENTRIES": str(len(pl_keys)),
+            "TYPE":    "LIST",
+            "UUID":    uuid.uuid4().hex,
+        })
+        for key in pl_keys:
+            e = ET.SubElement(new_pl, "ENTRY")
+            ET.SubElement(e, "PRIMARYKEY", attrib={"TYPE":"TRACK","KEY":key})
+
+    # Update counts
+    collection.set("ENTRIES", str(len(collection.findall("ENTRY"))))
+    subnodes.set("COUNT", str(len(subnodes)))
+
+    # Write back
+    raw    = ET.tostring(root, encoding="unicode")
+    pretty = minidom.parseString(raw).toprettyxml(indent="\t", encoding=None)
+    lines  = pretty.splitlines()
+    if lines and lines[0].startswith("<?xml"):
+        lines = lines[1:]
+    output = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n" + "\n".join(lines)
+    Path(nml_path).write_text(output, encoding="utf-8")
+
+    return added_tracks, updated_pls, created_pls
+
+# ── Progress state ─────────────────────────────────────────────────────────────
+progress_log  = []
 progress_done = False
 
 # ── API Routes ─────────────────────────────────────────────────────────────────
@@ -179,8 +397,7 @@ def index():
 
 @app.route("/api/detect-nml")
 def detect_nml():
-    p = find_collection_nml()
-    return jsonify({"path": p})
+    return jsonify({"path": find_collection_nml()})
 
 @app.route("/api/parse-nml")
 def api_parse_nml():
@@ -189,15 +406,79 @@ def api_parse_nml():
         return jsonify({"error": "File not found"}), 404
     try:
         playlists = parse_nml(path)
-        # don't send all track paths to frontend, just counts + names
         result = [{"name": pl["name"], "count": len(pl["tracks"])} for pl in playlists]
         return jsonify({"playlists": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/detect-itunes")
+def detect_itunes():
+    return jsonify({"path": find_itunes_library()})
+
+@app.route("/api/parse-itunes")
+def api_parse_itunes():
+    path = request.args.get("path","")
+    if not path or not Path(path).exists():
+        return jsonify({"error": "File not found"}), 404
+    try:
+        playlists = parse_itunes_library(path)
+        result = [{"name": pl["name"], "count": len(pl["tracks"])} for pl in playlists]
+        return jsonify({"playlists": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/sync-itunes", methods=["POST"])
+def api_sync_itunes():
+    global progress_log, progress_done
+    data          = request.json
+    itunes_path   = data.get("itunes_path","")
+    nml_path      = data.get("nml_path","")
+    selected      = data.get("selected", [])
+
+    if not itunes_path or not nml_path or not selected:
+        return jsonify({"error": "Missing parameters"}), 400
+
+    progress_log  = []
+    progress_done = False
+
+    def run():
+        global progress_done
+        try:
+            all_playlists = parse_itunes_library(itunes_path)
+            chosen = [pl for pl in all_playlists if pl["name"] in selected]
+            progress_log.append({"type":"ok","msg": f"Syncing {len(chosen)} playlist(s) to Traktor…"})
+
+            added, updated, created = sync_itunes_to_traktor(nml_path, chosen)
+
+            for name in created:
+                progress_log.append({"type":"ok",   "msg": f"  ✓ Created:  {name}"})
+            for name in updated:
+                progress_log.append({"type":"ok",   "msg": f"  ↻ Updated:  {name}"})
+
+            summary = {
+                "pl_exported": len(created) + len(updated),
+                "pl_skipped":  0,
+                "tr_copied":   added,
+                "tr_skipped":  0,
+                "tr_missing":  0,
+                "bytes_copied":"—",
+                "dest": nml_path,
+                "created": len(created),
+                "updated": len(updated),
+                "added_tracks": added,
+            }
+            progress_log.append({"type":"done","msg":"Sync complete","summary": summary})
+        except Exception as e:
+            progress_log.append({"type":"error","msg": str(e)})
+        finally:
+            progress_done = True
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"status": "started"})
+
 @app.route("/api/browse")
 def browse():
-    path = request.args.get("path", "")
+    path = request.args.get("path","")
     if not path:
         return jsonify({"drives": get_drives(), "dirs": [], "current": ""})
     p = Path(path)
@@ -212,7 +493,7 @@ def browse():
 
 @app.route("/api/mkdir", methods=["POST"])
 def mkdir():
-    data = request.json
+    data   = request.json
     parent = data.get("parent","")
     name   = sanitize_filename(data.get("name",""))
     if not parent or not name:
@@ -224,11 +505,11 @@ def mkdir():
 @app.route("/api/export", methods=["POST"])
 def export():
     global progress_log, progress_done
-    data         = request.json
-    nml_path     = data.get("nml_path","")
-    dest         = data.get("dest","")
-    selected     = data.get("selected", [])   # list of playlist names
-    copy_tracks  = data.get("copy_tracks", True)
+    data        = request.json
+    nml_path    = data.get("nml_path","")
+    dest        = data.get("dest","")
+    selected    = data.get("selected", [])
+    copy_tracks = data.get("copy_tracks", True)
 
     if not nml_path or not dest or not selected:
         return jsonify({"error": "Missing parameters"}), 400
@@ -236,84 +517,13 @@ def export():
     progress_log  = []
     progress_done = False
 
-    def os_path_to_traktor(path_str):
-        """Convert a normal OS path back to Traktor's /:folder/:file format."""
-        p = Path(path_str)
-        if sys.platform == "win32":
-            # e.g. G:\Music\track.mp3 -> volume="G:", dir="/:Music/:", file="track.mp3"
-            drive = p.drive          # "G:"
-            parts = list(p.parts[1:])  # everything after the drive
-            filename = parts[-1] if parts else ""
-            folders  = parts[:-1]
-            dir_str  = "".join(f"/:{part}" for part in folders) + "/:" if folders else "/:"
-            return drive, dir_str, filename
-        else:
-            parts    = list(p.parts)   # ['/', 'Users', 'name', 'Music', 'track.mp3']
-            filename = parts[-1] if len(parts) > 1 else ""
-            folders  = parts[1:-1]
-            dir_str  = "".join(f"/:{part}" for part in folders) + "/:" if folders else "/:"
-            return "", dir_str, filename
-
-    def build_nml(playlist, dest_path, copy_tracks):
-        """Build a Traktor-compatible NML string for a single playlist."""
-        import xml.etree.ElementTree as ET2
-        from xml.dom import minidom
-
-        nml = ET2.Element("NML", attrib={"VERSION": "19"})
-        head = ET2.SubElement(nml, "HEAD", attrib={"COMPANY": "www.native-instruments.com", "PROGRAM": "Traktor"})
-        collection = ET2.SubElement(nml, "COLLECTION", attrib={"ENTRIES": str(len(playlist["tracks"]))})
-        sets = ET2.SubElement(nml, "PLAYLISTS")
-        root_node = ET2.SubElement(sets, "NODE", attrib={"TYPE": "FOLDER", "NAME": "$ROOT"})
-        subnodes = ET2.SubElement(root_node, "SUBNODES", attrib={"COUNT": "1"})
-        pl_node = ET2.SubElement(subnodes, "NODE", attrib={"TYPE": "PLAYLIST", "NAME": playlist["name"]})
-        pl_el = ET2.SubElement(pl_node, "PLAYLIST", attrib={
-            "ENTRIES": str(len(playlist["tracks"])),
-            "TYPE": "LIST",
-            "UUID": __import__("uuid").uuid4().hex
-        })
-
-        for t in playlist["tracks"]:
-            src = Path(t["path"])
-            # If copying tracks, path in NML points to dest folder
-            final_path = str(dest_path / src.name) if (copy_tracks and src.exists()) else t["path"]
-
-            volume, dir_str, filename = os_path_to_traktor(final_path)
-
-            # Add to COLLECTION
-            entry = ET2.SubElement(collection, "ENTRY", attrib={
-                "TITLE":  t.get("title", src.stem),
-                "ARTIST": t.get("artist", ""),
-            })
-            ET2.SubElement(entry, "LOCATION", attrib={
-                "DIR":    dir_str,
-                "FILE":   filename,
-                "VOLUME": volume,
-                "VOLUMEID": volume,
-            })
-
-            # Add to PLAYLIST
-            pl_entry = ET2.SubElement(pl_el, "ENTRY")
-            ET2.SubElement(pl_entry, "PRIMARYKEY", attrib={
-                "TYPE": "TRACK",
-                "KEY":  volume + dir_str + filename,
-            })
-
-        # Pretty-print
-        raw = ET2.tostring(nml, encoding="unicode")
-        pretty = minidom.parseString(raw).toprettyxml(indent="\t", encoding=None)
-        # Remove the <?xml ...?> declaration minidom adds (Traktor adds its own)
-        lines = pretty.splitlines()
-        if lines and lines[0].startswith("<?xml"):
-            lines = lines[1:]
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n" + "\n".join(lines)
-
     def run():
         global progress_done
         try:
             dest_path = Path(dest)
             dest_path.mkdir(parents=True, exist_ok=True)
             playlists = parse_nml(nml_path)
-            chosen = [pl for pl in playlists if pl["name"] in selected]
+            chosen    = [pl for pl in playlists if pl["name"] in selected]
 
             pl_exported = pl_skipped = 0
             tr_copied = tr_skipped = tr_missing = 0
@@ -326,14 +536,12 @@ def export():
                     pl_skipped += 1
                     continue
 
-                nml_out_path = dest_path / f"{name}.nml"
-
-                if nml_out_path.exists():
+                out_path = dest_path / f"{name}.nml"
+                if out_path.exists():
                     progress_log.append({"type":"skip","msg": f"{name}.nml already exists — skipped"})
                     pl_skipped += 1
                 else:
-                    nml_content = build_nml(pl, dest_path, copy_tracks)
-                    nml_out_path.write_text(nml_content, encoding="utf-8")
+                    out_path.write_text(build_nml_for_playlist(pl, dest_path, copy_tracks), encoding="utf-8")
                     progress_log.append({"type":"ok","msg": f"✓ {name}.nml ({len(pl['tracks'])} tracks)"})
                     pl_exported += 1
 
@@ -341,8 +549,7 @@ def export():
                     for t in pl["tracks"]:
                         src = Path(t["path"])
                         if not src.exists():
-                            tr_missing += 1
-                            continue
+                            tr_missing += 1; continue
                         dst = dest_path / src.name
                         if dst.exists():
                             tr_skipped += 1
@@ -361,9 +568,9 @@ def export():
                 "pl_exported": pl_exported, "pl_skipped": pl_skipped,
                 "tr_copied": tr_copied, "tr_skipped": tr_skipped,
                 "tr_missing": tr_missing, "bytes_copied": human_size(bytes_copied),
-                "dest": dest
+                "dest": dest,
             }
-            progress_log.append({"type":"done","msg":"Export complete", "summary": summary})
+            progress_log.append({"type":"done","msg":"Export complete","summary": summary})
         except Exception as e:
             progress_log.append({"type":"error","msg": str(e)})
         finally:
@@ -374,8 +581,25 @@ def export():
 
 @app.route("/api/progress")
 def progress():
-    """Simple polling endpoint — returns all log lines so far."""
     return jsonify({"log": progress_log, "done": progress_done})
+
+def get_drives():
+    drives = []
+    if sys.platform == "win32":
+        import ctypes
+        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            if bitmask & 1:
+                p = Path(f"{letter}:\\")
+                if p.exists(): drives.append(str(p))
+            bitmask >>= 1
+    elif sys.platform == "darwin":
+        for v in Path("/Volumes").iterdir():
+            if v.is_dir() and v.name not in ("Macintosh HD","Preboot","Recovery","VM"):
+                drives.append(str(v))
+    else:
+        drives.append(str(Path.home()))
+    return drives
 
 if __name__ == "__main__":
     import webbrowser
