@@ -591,6 +591,12 @@ def export():
 def progress():
     return jsonify({"log": progress_log, "done": progress_done})
 
+@app.route("/api/heartbeat", methods=["POST"])
+def heartbeat():
+    import time
+    _heartbeat_state["last"] = time.time()
+    return jsonify({"ok": True})
+
 def get_drives():
     drives = []
     if sys.platform == "win32":
