@@ -16,46 +16,13 @@ A desktop tool to export Traktor playlists to a USB drive and sync iTunes/Apple 
 
 ---
 
-## Requirements
+## Getting Started
 
-Only needed if running from source (not the `.exe`):
+Open the application (.exe)
+Your browser will launch automatically
+Use the interface to export or sync playlists
 
-- Python 3.8+
-- Flask — `pip install flask`
-
----
-
-## Running from source
-
-```
-project/
-├── launch.py
-├── traktor_server.py
-└── public/
-     ├── index.html
-     └── favicon.ico
-```
-
-```cmd
-pip install flask
-python launch.py
-```
-
-The app will open automatically in your browser at `http://localhost:5123`.  
-Close the browser tab to shut the server down completely.
-
----
-
-## Building the executable (Windows)
-
-```cmd
-pip install pyinstaller
-python -m PyInstaller --onefile --noconsole --name "Traktor Exporter" --add-data "public;public" launch.py
-```
-
-The finished `.exe` will be in the `dist/` folder. Double-click it — no Python or terminal needed.
-
-> **Note:** Windows Defender may show a SmartScreen warning on first run since the exe is unsigned. Click **More info → Run anyway** to proceed.
+Closing the browser tab will completely shut down the app.
 
 ---
 
@@ -85,17 +52,6 @@ Syncing will:
 - Create the playlist in Traktor if it doesn't exist
 - Replace it if a playlist with the same name already exists
 - Never move or copy audio files — only the references are updated
-
----
-
-## File structure (source)
-
-| File | Purpose |
-|---|---|
-| `launch.py` | Entry point — starts the server and opens the browser |
-| `traktor_server.py` | Flask backend — all file parsing and export logic |
-| `public/index.html` | React frontend UI |
-| `public/favicon.ico` | Browser tab icon |
 
 ---
 
