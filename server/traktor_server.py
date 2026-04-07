@@ -601,9 +601,13 @@ def get_drives():
         drives.append(str(Path.home()))
     return drives
 
+# Allow the UI folder to be overridden (used when bundled as .exe)
+_ui_dir = os.environ.get("TRAKTOR_UI_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "traktor_ui"))
+app.static_folder = _ui_dir
+
 if __name__ == "__main__":
     import webbrowser
     print("\n🎛  Traktor Exporter UI")
     print("   Opening http://localhost:5123 …\n")
     threading.Timer(1.2, lambda: webbrowser.open("http://localhost:5123")).start()
-    app.run(port=5123, debug=False)
+    app.run(port=5123, debug=False, use_reloader=False)
