@@ -1,0 +1,240 @@
+:root {
+  --bg:      #0d0d0d;
+  --surface: #161616;
+  --border:  #2a2a2a;
+  --accent:  #e8ff47;
+  --accent2: #ff6b35;
+  --text:    #f0f0f0;
+  --muted:   #666;
+  --ok:      #4dff91;
+  --warn:    #ffd166;
+  --error:   #ff4d6d;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* The whole app fills the viewport exactly — nothing scrolls except designated panels */
+html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* ── Shell ── */
+.shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  flex-shrink: 0;
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 3px; color: var(--accent); line-height: 1; }
+header span { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── Tab bar ── */
+.tabs {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.tab {
+  padding: 10px 24px;
+  font-size: 0.8rem;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Page (fills remaining space, no overflow) ── */
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Path row ── */
+.path-row {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.path-label { font-family: 'DM Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); white-space: nowrap; }
+.path-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+.path-input:focus { border-color: var(--accent); }
+
+/* ── Two-column content area (scrollable panels inside) ── */
+.columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  min-height: 0;
+}
+.col:last-child { border-right: none; }
+.col-header {
+  flex-shrink: 0;
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.col-title { font-family: 'DM Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+
+/* THIS IS THE KEY: the scrollable list inside each column */
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 18px;
+  min-height: 0;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 7px 14px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .3; cursor: default; }
+.btn.accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.btn.accent:hover { background: #d4eb3a; }
+.btn.sm { padding: 4px 9px; font-size: 0.72rem; }
+
+/* ── Playlist items ── */
+.pl-controls { display: flex; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+.pl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  transition: background .1s; user-select: none;
+}
+.pl-item:hover { background: var(--surface); }
+.pl-item.on { background: #1d2900; }
+.chk {
+  width: 16px; height: 16px; border: 1.5px solid var(--border); border-radius: 3px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .12s;
+}
+.pl-item.on .chk { background: var(--accent); border-color: var(--accent); }
+.chk-mark { font-size: 10px; color: #000; }
+.pl-name { font-size: 0.85rem; flex: 1; }
+.pl-count { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); }
+
+/* ── Folder browser ── */
+.breadcrumb {
+  font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted);
+  margin-bottom: 8px; padding: 7px 10px; background: var(--surface); border-radius: 5px;
+  word-break: break-all; line-height: 1.5; flex-shrink: 0;
+}
+.breadcrumb strong { color: var(--accent); }
+.f-item {
+  display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+  border-radius: 5px; cursor: pointer; font-size: 0.83rem; transition: background .1s;
+}
+.f-item:hover { background: var(--surface); }
+.f-item.drive-row { color: var(--accent2); font-weight: 500; }
+.f-item.up-row { color: var(--muted); }
+.f-actions {
+  flex-shrink: 0; display: flex; gap: 7px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center;
+}
+.new-folder-row { display: flex; gap: 5px; flex: 1; }
+.nf-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+  padding: 6px 9px; font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--text); outline: none; min-width: 0;
+}
+.nf-input:focus { border-color: var(--accent); }
+.dest-badge {
+  font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 6px 10px;
+  background: #182300; border: 1px solid #3a5200; border-radius: 5px; color: var(--ok);
+  word-break: break-all; margin-top: 8px; flex-shrink: 0;
+}
+
+/* ── Bottom bar ── */
+.bottom-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+}
+.bottom-info { flex: 1; font-size: 0.8rem; color: var(--muted); }
+.bottom-info strong { color: var(--text); }
+.toggle-row { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--muted); }
+.toggle { width: 34px; height: 19px; background: var(--border); border-radius: 10px; cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); }
+.toggle-knob { position: absolute; top: 2.5px; left: 2.5px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; }
+.toggle.on .toggle-knob { transform: translateX(15px); }
+
+/* ── Log ── */
+.log-area {
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: #080808;
+  padding: 10px 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+.l-ok    { color: var(--ok); }
+.l-skip  { color: var(--muted); }
+.l-warn  { color: var(--warn); }
+.l-error { color: var(--error); }
+.l-track { color: #6688aa; }
+.l-done  { color: var(--accent); font-weight: 500; }
+
+.summary {
+  margin-top: 8px; padding: 10px 14px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 7px;
+  display: flex; flex-wrap: wrap; gap: 18px;
+}
+.s-stat { display: flex; flex-direction: column; gap: 1px; }
+.s-val  { font-size: 1rem; color: var(--accent); }
+.s-key  { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.empty  { color: var(--muted); font-size: 0.8rem; padding: 16px 0; }
+.spin   { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

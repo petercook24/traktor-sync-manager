@@ -1,6 +1,6 @@
 {
-  "appId": "com.yourapp.id",
-  "productName": "Your App Name",
+  "appId": "traktor.sync.manager",
+  "productName": "Traktor Sync Manager",
   "files": [
     "**/*"
   ],
@@ -10,7 +10,7 @@
   },
   "win": {
     "target": ["nsis"],
-    "icon": "build/icon.ico"
+    "icon": "favicon.ico"
   },
   "linux": {
     "target": ["AppImage"],
