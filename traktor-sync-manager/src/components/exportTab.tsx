@@ -3,9 +3,15 @@ import { api } from "../utils/api";
 import { PlaylistPicker } from "./playlistPicker";
 import { FolderBrowser } from "./folderBrowser";
 import { LogPanel } from "./logPanel";
+interface ExportTabProps {
+  log: any[]; 
+  setLog: (value: any[] | ((prev: any[]) => any[])) => void; 
+  setExporting: (value: boolean | ((prev: boolean) => boolean)) => void; 
+  exporting: boolean 
+}
 
 // ── Export Tab ────────────────────────────────────────────────────────────────
-export function ExportTab({ log, setLog, setExporting, exporting } : { log: any[]; setLog: (value: any[] | ((prev: any[]) => any[])) => void; setExporting: (value: boolean | ((prev: boolean) => boolean)) => void; exporting: boolean }) {
+export function ExportTab({ log, setLog, setExporting, exporting } : ExportTabProps) {
   const [nmlPath, setNmlPath]     = useState("");
   const [playlists, setPlaylists] = useState([]);
   const [selected, setSelected]   = useState(new Set<string>());

@@ -2,9 +2,16 @@ import { useState, useRef, useEffect } from "react";
 import { PlaylistPicker } from "./playlistPicker";
 import { LogPanel } from "./logPanel";
 import { api } from "../utils/api";
+ interface ItunesTabProps {
+  log: any[]; 
+  setLog: (value: any[] | ((prev: any[]) => any[])) => void; 
+  setExporting: (value: boolean | ((prev: boolean) => boolean)) => void; 
+  exporting: boolean 
+}
 
 // ── iTunes Sync Tab ───────────────────────────────────────────────────────────
-export function ItunesTab({ log, setLog, setExporting, exporting } : { log: any[]; setLog: (value: any[] | ((prev: any[]) => any[])) => void; setExporting: (value: boolean | ((prev: boolean) => boolean)) => void; exporting: boolean }) {
+export function ItunesTab({ log, setLog, setExporting, exporting } : ItunesTabProps ) {
+
   const [itunesPath, setItunesPath] = useState("");
   const [nmlPath, setNmlPath]       = useState("");
   const [playlists, setPlaylists]   = useState([]);
@@ -13,17 +20,33 @@ export function ItunesTab({ log, setLog, setExporting, exporting } : { log: any[
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
-    api("/api/detect-itunes").then(d => { if (d.path) { setItunesPath(d.path); load(d.path); } });
-    api("/api/detect-nml").then(d => { if (d.path) setNmlPath(d.path); });
+    api("/api/detect-itunes").then(d => { 
+      if (d.path) { 
+        setItunesPath(d.path); 
+        load(d.path); 
+      }
+    });
+
+    api("/api/detect-nml").then(d => { 
+      if (d.path) 
+        setNmlPath(d.path); 
+      });
+
   }, []);
 
   const load = async (path: string | null) => {
-    if (!path) return;
-    setLoading(true); setPlaylists([]);
+    if (!path) 
+      return;
+    setLoading(true); 
+    setPlaylists([]);
     const d = await api(`/api/parse-itunes?path=${encodeURIComponent(path)}`);
     setLoading(false);
-    if (d.playlists) { setPlaylists(d.playlists); setSelected(new Set<string>(d.playlists.map((p: { name: string }) => p.name))); }
-    if (d.error) alert("Error: " + d.error);
+    if (d.playlists) { 
+      setPlaylists(d.playlists); 
+      setSelected(new Set<string>(d.playlists.map((p: { name: string }) => p.name))); 
+    }
+    if (d.error) 
+      alert("Error: " + d.error);
   };
 
   const startSync = async () => {
