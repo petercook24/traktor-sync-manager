@@ -10,7 +10,7 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-UI_DIR = os.path.join(BASE_DIR, "public")
+UI_DIR = os.path.join(BASE_DIR, "dist")
 os.environ["TRAKTOR_UI_DIR"] = UI_DIR
 
 import traktor_server as server

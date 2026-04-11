@@ -26,7 +26,7 @@ def _get_base_dir():
         return __import__("sys")._MEIPASS
     return os.path.dirname(os.path.abspath(__file__))
 
-_ui_dir = os.environ.get("TRAKTOR_UI_DIR", os.path.join(_get_base_dir(), "public"))
+_ui_dir = os.environ.get("TRAKTOR_UI_DIR", os.path.join(_get_base_dir(), "dist"))
 
 app = Flask(__name__, static_folder=_ui_dir, static_url_path="")
 if _has_cors:
