@@ -1,9 +1,9 @@
-export interface Playlist {
+interface Playlist {
   name: string;
   count: number;
 }
 
-export interface PlaylistPickerProps {
+interface PlaylistPickerProps {
   playlists: Playlist[];
   selected: Set<string>;
   setSelected: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
